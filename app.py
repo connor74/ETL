@@ -7,8 +7,13 @@ config.read('config.ini')
 
 a = MSSQL(config)
 result = a.read_raw("balance", "2022-04-29")
+d = []
 for i in result:
-    print(i)
+    d.append(i)
+
+ch = Clickhouse(config)
+ch.insert(d)
+
 
 
 def main():

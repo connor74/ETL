@@ -36,11 +36,11 @@ class MSSQL():
         """
         return pd.read_sql_query(sql, self._engine, params=[params])
 
-    def read_raw(self, table: str, param):
+    def read_raw(self, table: str, param: str):
         """
         :param table: Наименование таблицы
-        :param params: Словарь с параметрами для фильтрации в запросе (WHERE)
-        :return:
+        :param param: Дата для выборки
+        :return: Генератор запроса в БД
         """
         with self._engine.connect() as conn:
             sql_query = read_sql_file(table)
@@ -48,12 +48,23 @@ class MSSQL():
                 yield item
 
 
+class Clickhouse:
+    def __init__(self, config, db_name="main"):
+        self._config = config[self.__class__.__name__.lower()]
+        self.db_name = db_name
+        self._host = f"http://{self._config['host']}:8123/"
+        self._user = self._config['user']
+        self._password = self._config['password']
+        print(self._user, self._password)
 
+    def select(self, query):
+        res = requests.post(self._host, auth=(self._user, self._password), data=query)
+        if res.status_code == 200:
+            return res.text
+        else:
+            raise ValueError(res.text)
 
-
-class Clickhouse():
-    def __init__(self, config):
-        self._params = config[self.__class__.__name__.lower()]
-        self._host = self._params['host']
-
-
+    def insert(self, data):
+        query = f"INSERT INTO main.balance VALUES {data}"
+        print(query)
+        res = requests.post(self._host, auth=(self._user, self._password), data=query)
