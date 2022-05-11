@@ -43,16 +43,17 @@ class MSSQL():
         for chunk in pd.read_sql_query(sql, self._engine, params=[params], chunksize=5000, coerce_float=False):
             yield chunk
 
-    def read_raw(self, table: str, param: str):
+    def read_raw(self, table: str, param: str, fetch_size: int = 5000):
         """
         :param table: Наименование таблицы
         :param param: Дата для выборки
+        :param fetch_size: Количество строк в одном батче
         :return: Генератор запроса в БД
         """
         sql_query = read_sql_file(table)
         with self._pyodbc.cursor().execute(sql_query, param) as conn:
             while True:
-                res = conn.fetchmany(5000)
+                res = conn.fetchmany(fetch_size)
                 if res:
                     yield res
                 else:

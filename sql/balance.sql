@@ -1,4 +1,4 @@
-SELECT TOP 5
+SELECT
 	CAST(ac.ID AS int) AS id_account,
 	CAST(GETDATE() AS smalldatetime) AS time_create,
 	bal.Date AS date_balance,
