@@ -1,20 +1,34 @@
 from db import Clickhouse, MSSQL
 import configparser
+import time
+import datetime
 
 config = configparser.ConfigParser()
 config.read('config.ini')
+yesterday = datetime.date.today() - datetime.timedelta(1)
 
-
-a = MSSQL(config)
-result = a.read_raw("balance", "2022-04-29")
-d = []
-for i in result:
-    d.append(i)
-
+mssql = MSSQL(config)
 ch = Clickhouse(config)
-ch.insert(d)
+
+
+def check_last_date(table):
+    return ch.select_last_date(table)
+
+def migrate_by_date(table, date):
+    rows_all = 0
+    for chunk in mssql.read_raw(table, date):
+        rows = ch.insert(table, chunk)
+        rows_all += rows
+    return rows_all
+
+
+def migrate_plan(start: str, end):
+    pass
+
 
 
 
 def main():
-    pass
+    print(check_last_date("balance"))
+
+main()
