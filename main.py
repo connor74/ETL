@@ -69,7 +69,7 @@ def update_from_db(table, field, dates_columns, ch, date_begin=None):
     else:
         print(f"Таблица {table} с актуальными данными")
 
-#iH5vOQj&
+
 if __name__ == '__main__':
     ch = CH()
     if check_last_update():
