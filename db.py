@@ -1,9 +1,11 @@
 import datetime
+import inspect
 
 import pyodbc
 import json
 from pathlib import Path
 from clickhouse_driver import Client
+from colors import Colors
 
 
 def read_sql_file(file_name: str, folder: str = "sql", file_type: str = "sql") -> str:
@@ -26,7 +28,7 @@ class MSSQL():
         self._con_string = f"DRIVER={self._params['driver']};SERVER={self._params['server']};DATABASE={self._params['db']};uid={self._params['uid']};Trusted_Connection=yes"
         self._pyodbc = pyodbc.connect(self._con_string)  # pyodbc без sqlalchemy
 
-    def read_raw(self, table: str, param: str, fetch_size: int = 5000):
+    def read_raw(self, table: str, param: str, fetch_size: int = 5000) -> list:
         """
         :param table: Наименование таблицы
         :param param: Дата для выборки
@@ -56,7 +58,7 @@ class Clickhouse:
             database=self._db_name
         )
 
-    def _select_table_column_types(self, table_name):
+    def _select_table_column_types(self, table_name) -> dict:
         query = f"""SELECT column_name, data_type FROM information_schema.columns c 
                  WHERE table_name = '{table_name}' FORMAT JSONCompact"""
         data = json.loads(self.select(query))['data']
@@ -85,4 +87,11 @@ class Clickhouse:
         :return: Возвращает количество строк вставленных в таблицу
         """
         query = f"INSERT INTO {self._db_name}.{table} VALUES "
-        return self.client.execute(query, data)
+        rows = None
+        try:
+            rows = self.client.execute(query, data)
+        except AttributeError as e:
+            print(Colors.red,
+                  f"Ошибка: Class: {self.__class__.__name__}, функия: {inspect.currentframe().f_code.co_name}", e.name,
+                  e.obj, e.args)
+        return rows

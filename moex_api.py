@@ -9,36 +9,6 @@ import numpy as np
 class MOEXapi:
     def __init__(self, ch):
         self.ch_client = ch
-        self.sec_id_list = self.ch_client.execute(
-            f"""SELECT DISTINCT SecurityId 
-                FROM main.moex_deals 
-                WHERE PriceType = 'PERC' AND BoardId != 'BCS'
-                ORDER BY SecurityId FORMAT JSONAsString""",
-            columnar=True
-        )[0]
-        self.ch_client.execute("""
-        CREATE TABLE IF NOT EXISTS  main.bonds_history (
-            trade_date Date,
-            sec_id String,
-            short_name String,
-            mat_date Nullable(Date),
-            offer_date Nullable(Date),
-            yield_close Nullable(Decimal64(2)),
-            market_price_3  Nullable(Decimal64(2)),
-            face_value  Nullable(Decimal64(2)),
-            face_unit String,
-            coupon_value Nullable(Decimal64(2)),
-            accint Nullable(Decimal64(2)),
-            coupon_rate Nullable(Decimal64(2)),
-            num_trades UInt64,
-            yield_to_ofer Nullable(Decimal64(4)),
-            volume  UInt64
-            )
-        ENGINE = MergeTree()
-        PARTITION BY toYYYYMMDD(trade_date)
-        ORDER BY (trade_date)
-        """
-        )
 
         self.keys = [
             'trade_date',

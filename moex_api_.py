@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import requests
 
 url = "http://iss.moex.com/iss/"
@@ -8,7 +10,7 @@ path_history = "history/engines/stock/markets/bonds/"
 
 
 class MOEX_api:
-    def __init__(self, date: str, start=1):
+    def __init__(self, date: str) -> None:
         self._pages = None
         self._data = None
         self._columns = None
@@ -22,7 +24,6 @@ class MOEX_api:
             'SHORTNAME',
             'MATDATE',
             'OFFERDATE',
-            'YIELDCLOSE',
             'MARKETPRICE3',
             'FACEVALUE',
             'FACEUNIT',
@@ -30,9 +31,17 @@ class MOEX_api:
             'ACCINT',
             'COUPONPERCENT',
             'NUMTRADES',
+            'YIELDATWAP',
+            'YIELDCLOSE',
             'YIELDTOOFFER',
             'VOLUME',
         ]
+        self._date_columns = [
+            'TRADEDATE',
+            'MATDATE',
+            'OFFERDATE'
+        ]
+
         self._link = url + path_history
         self._params = {
             'date': self._date,
@@ -56,17 +65,20 @@ class MOEX_api:
             return None
 
     @property
-    def status_code(self):
+    def status_code(self) -> int:
         return self._status_code
 
     @property
-    def columns(self):
+    def columns(self) -> list:
         return self._columns
 
     @property
     def data(self):
         return self._data
 
+    @property
+    def date_columns(self) -> list:
+        return self._date_columns
 
 def moex_get(date: str) -> list:
     moex = MOEX_api(date)
@@ -79,10 +91,15 @@ def moex_get(date: str) -> list:
         if moex.status_code:
             if moex.data:
                 if num == 1:
-                    columns = moex.columns
+                    columns = [cols.lower() for cols in moex.columns]
                 flat_list = []
                 for item in moex.data:
-                    flat_list.append(dict(zip(moex.columns, item)))
+                    data_dict = dict(zip(columns, item))
+                    for date in moex.date_columns:
+                        if data_dict[date.lower()] or data_dict[date.lower()] == 'None':
+                            data_dict[date.lower()] = datetime.strptime(data_dict[date.lower()], '%Y-%m-%d')
+                            print(data_dict[date.lower()])
+                    flat_list.append(data_dict)
                 all_data.extend(flat_list)
                 num += 100
             else:
