@@ -47,7 +47,7 @@ def date_to_str(date: datetime, format: str = "%Y-%m-%d") -> str:
     return date
 
 
-def migrate_table(table: str, date_column_name: str, end_date: str, start_date: str = None) -> None:
+def migrate_table(table: str, date_column_name: str, end_date: str = None, start_date: str = None) -> None:
     if end_date:
         end_date = str_to_date(end_date)
     else:
@@ -57,6 +57,8 @@ def migrate_table(table: str, date_column_name: str, end_date: str, start_date: 
         start_date = str_to_date(start_date) - datetime.timedelta(-1)
     else:
         last_date = check_last_date(table, date_column_name)
+        print(type(last_date))
+        print(type(end_date))
         if last_date < end_date:
             start_date = last_date - datetime.timedelta(-1)
         else:
@@ -88,11 +90,15 @@ def main() -> None:
     # start_date = datetime.datetime.strptime("2022-05-06", "%Y-%m-%d")
     # migrate_table("balance")
     begin = time.time()
-    migrate_table("balance", "date_balance", end_date="2022-04-29", start_date="2022-01-01")
+    migrate_table("balance", "date_balance", start_date='2022-01-01', end_date='2022-05-16')
     #data = moex_get(yesterday.strftime('%Y-%m-%d'))
     # moex_bonds_history
     #ch.insert("moex_bonds_history", data)
     print(time.time() - begin)
 
 
+
 main()
+
+# Переделать номер счета в int128
+

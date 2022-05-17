@@ -5,11 +5,12 @@ import datetime
 import requests
 import pandas as pd
 
+dir = "N:\\KurzanovAV\\Общее\\moex\\"
+
 
 class MOEXreports:
     def __init__(self):
-        dir = "N:\\KurzanovAV\\Общее\\moex\\"
-        self.path= "N:\\KurzanovAV\\Общее\\moex\\moex_reports\\"
+        self.path = "moex_reports\\"
 
         self.list_files = os.listdir(self.path)
 
@@ -86,7 +87,8 @@ class MOEXreports:
                     trade_date = value
                 if key == 'TradeTime':
                     trade_time = value
-                if key in ['Price', 'Price2', 'Value', 'AccInt', 'Amount', 'FaceAmount', 'ExchComm', 'ClrComm', 'RepoRate']:
+                if key in ['Price', 'Price2', 'Value', 'AccInt', 'Amount', 'FaceAmount', 'ExchComm', 'ClrComm',
+                           'RepoRate']:
                     if not value:
                         value = 0.0
                     item[key] = float(value)
@@ -118,19 +120,17 @@ class MOEXreports:
             if count[0][0] == 0:
                 data = self._parse_moex_xml(root)
                 rows = ch.insert("moex_deals", data)
-                print(f"Файл {i+1} из {files_count} ||| Добавлено {str(rows)} строк из  {str(item)}")
+                print(f"Файл {i + 1} из {files_count} ||| Добавлено {str(rows)} строк из  {str(item)}")
             else:
-                print(f"Файл {i+1} из {files_count} |||  {str(item)}- уже внесен в базу")
+                print(f"Файл {i + 1} из {files_count} |||  {str(item)}- уже внесен в базу")
+
 
 class MOEXcurency:
     def __init__(self, file):
         self.path = "N:\\KurzanovAV\\Общее\\moex\\currency_reports\\"
         self.file = file
 
-
-
         self.list_files = os.listdir(self.path)
-
 
     def _get_xml_root(self):
         tree = ET.parse(self.path + self.file)
@@ -139,8 +139,7 @@ class MOEXcurency:
         return doc_num, root
 
 
-
-#MOEXcurency("MB02568_CUX23_D77_040322_003854088.xml")
+# MOEXcurency("MB02568_CUX23_D77_040322_003854088.xml")
 
 class CBRcurrency:
     def __init__(self, ch):
@@ -182,9 +181,3 @@ class CBRcurrency:
             self._parse_data(self.today)
         else:
             return None
-
-
-
-
-
-
