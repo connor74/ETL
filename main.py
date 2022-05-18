@@ -1,9 +1,6 @@
 import datetime
 import pandas as pd
-import numpy as np
-from moex_reports import MOEXreports, CBRcurrency
 from moex_xls import MOEXxls
-from moex_api import MOEXapi
 from database import CH, MSSQL
 import time
 
@@ -98,12 +95,6 @@ if __name__ == '__main__':
         update_from_db(item['table'], item['table_param'][0], item['dates_columns'], ch)
 
 
-    moex_api = MOEXapi(ch)
-    moex_api.get_bonds_data()
-    moex_reports = MOEXreports()
-    moex_reports.moex_xmlreports_to_ch(ch)
     moex_xls = MOEXxls()
     moex_xls.read_xlsx(ch)
-    cbr = CBRcurrency(ch)
-    cbr.get_data()
 

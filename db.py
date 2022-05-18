@@ -95,3 +95,14 @@ class Clickhouse:
                   f"Ошибка: Class: {self.__class__.__name__}, функия: {inspect.currentframe().f_code.co_name}", e.name,
                   e.obj, e.args)
         return rows
+
+    def check_moex_report(self, doc_num: str):
+        """
+        Проверка. Внесены ли в базу отчеты биржи с номером отчета 'doc_num'
+        :param doc_num: Номер отчета биржи
+        :return: True/False
+        """
+        query = f"SELECT COUNT(*) FROM {self._db_name}.moex_deals WHERE doc_num = '{doc_num}'"
+        if self.client.execute(query)[0][0]:
+            return True
+        return False

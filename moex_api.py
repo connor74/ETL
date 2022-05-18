@@ -1,71 +1,108 @@
-import os
-import datetime
+from datetime import datetime
+
 import requests
-import petl as etl
-import openpyxl
-import pandas as pd
-import numpy as np
 
-class MOEXapi:
-    def __init__(self, ch):
-        self.ch_client = ch
+url = "http://iss.moex.com/iss/"
+path_history = "history/engines/stock/markets/bonds/"
 
-        self.keys = [
-            'trade_date',
-            'sec_id',
-            'short_name',
-            'mat_date',
-            'offer_date',
-            'yield_close',
-            'market_price_3',
-            'face_value',
-            'face_unit',
-            'coupon_value',
-            'accint',
-            'coupon_rate',
-            'num_trades',
-            'yield_to_ofer',
-            'volume'
+
+# http://iss.moex.com/iss/history/engines/stock/markets/bonds/securities.json?date=2022-03-25&iss.meta=off&history.columns=BOARDID,TRADEDATE,SECID,SHORTNAME,MATDATE,OFFERDATE,YIELDCLOSE,MARKETPRICE3,FACEVALUE,FACEUNIT,COUPONVALUE,ACCINT,COUPONPERCENT,NUMTRADES,YIELDTOOFFER,VOLUME&from=2022-03-25&till=2022-03-25
+
+
+class MOEX_api:
+    def __init__(self, date: str) -> None:
+        self._pages = None
+        self._data = None
+        self._columns = None
+        self._status_code = None
+        self._resp = None
+        self._date = date
+        self._req_columns = [
+            'BOARDID',
+            'TRADEDATE',
+            'SECID',
+            'SHORTNAME',
+            'MATDATE',
+            'OFFERDATE',
+            'MARKETPRICE3',
+            'FACEVALUE',
+            'FACEUNIT',
+            'COUPONVALUE',
+            'ACCINT',
+            'COUPONPERCENT',
+            'NUMTRADES',
+            'YIELDATWAP',
+            'YIELDCLOSE',
+            'YIELDTOOFFER',
+            'VOLUME',
         ]
-        self.column_dates = [
-            'trade_date',
-            'mat_date',
-            'offer_date'
+        self._date_columns = [
+            'TRADEDATE',
+            'MATDATE',
+            'OFFERDATE'
         ]
 
-    def get_bonds_data(self):
-        last_date = self.ch_client.max_date("bonds_history", "trade_date")
-        yesterday = datetime.date.today() - datetime.timedelta(1)
-        if last_date >= yesterday:
-            print("Данные с биржи акутальны")
+        self._link = url + path_history
+        self._params = {
+            'date': self._date,
+            'iss.meta': 'off',
+            'history.columns': ','.join(self._req_columns),
+        }
+
+    def get_data(self, num: int) -> None:
+        self._params['start'] = num
+        try:
+            self._resp = requests.get(f'{self._link}securities.json', params=self._params)
+            self._status_code = self._resp.status_code
+        except requests.exceptions.HTTPError as err:
+            print(f"Статус: {self._status_code} | {err}")
+        except requests.exceptions.Timeout as err:
+            print(err)
+        if self._status_code == 200:
+            self._columns = self._resp.json()['history']['columns']
+            self._data = self._resp.json()['history']['data']
         else:
-            date_range_all = pd.date_range(start=last_date - datetime.timedelta(-1), end=yesterday)
-            for date in date_range_all:
-                data = []
-                for sec_id in self.sec_id_list:
-                    params = {
-                        "iss.only": "history",
-                        "iss.meta": "off",
-                        "history.columns": "TRADEDATE,SECID,SHORTNAME,MATDATE,OFFERDATE,YIELDCLOSE,MARKETPRICE3,FACEVALUE,FACEUNIT,COUPONVALUE,ACCINT,COUPONPERCENT,NUMTRADES,YIELDTOOFFER,VOLUME",
-                        "from": date.strftime('%Y-%m-%d'),
-                        "till": date.strftime('%Y-%m-%d'),
-                    }
-                    link = f"http://iss.moex.com/iss/history/engines/stock/markets/bonds/securities/{sec_id}.json"
-                    resp = requests.get(link, params)
-                    if resp.json()['history']['data']:
-                        values = resp.json()['history']['data'][0]
-                        data_dict = dict(zip(self.keys, values))
-                        for item in self.column_dates:
-                            if data_dict[item]:
-                                data_dict[item] = datetime.datetime.strptime(data_dict[item], '%Y-%m-%d')
-                        data.append(data_dict)
-                if data:
-                    rows = self.ch_client.insert('bonds_history', data)
-                    print(f"Добавлено {rows} строк")
-        
+            return None
 
+    @property
+    def status_code(self) -> int:
+        return self._status_code
 
+    @property
+    def columns(self) -> list:
+        return self._columns
 
+    @property
+    def data(self):
+        return self._data
 
+    @property
+    def date_columns(self) -> list:
+        return self._date_columns
 
-
+def moex_get(date: str) -> list:
+    moex = MOEX_api(date)
+    # API выдает по 100 записей, необходимо пройти в цикле по всем страницам
+    # Отсчет идет от номера первой записи на странице
+    num = 1
+    all_data = []
+    while True:
+        moex.get_data(num)
+        if moex.status_code:
+            if moex.data:
+                if num == 1:
+                    columns = [cols.lower() for cols in moex.columns]
+                flat_list = []
+                for item in moex.data:
+                    data_dict = dict(zip(columns, item))
+                    for date in moex.date_columns:
+                        if data_dict[date.lower()] or data_dict[date.lower()] == 'None':
+                            data_dict[date.lower()] = datetime.strptime(data_dict[date.lower()], '%Y-%m-%d')
+                            print(data_dict[date.lower()])
+                    flat_list.append(data_dict)
+                all_data.extend(flat_list)
+                num += 100
+            else:
+                return all_data
+        else:
+            return None

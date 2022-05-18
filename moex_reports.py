@@ -1,183 +1,100 @@
-# -*- coding: utf-8 -*-
 import xml.etree.ElementTree as ET
 import os
 import datetime
+from typing import Any
+
 import requests
 import pandas as pd
 
-dir = "N:\\KurzanovAV\\Общее\\moex\\"
+DIR = "N:\\KurzanovAV\\Общее\\moex\\"
+
+float_cols = ["Price", "Value", "AccInt", "Amount", "Price2", "FaceAmount", "RepoRate", "ExchComm", "ClrComm"]
+date_cols = ["DueDate"]
+int_cols = ["Quantity", "RepoPart"]
+time_cols = ["TradeTime"]
 
 
-class MOEXreports:
-    def __init__(self):
-        self.path = "moex_reports\\"
+def str_to_date(str_date: str):
+    return datetime.datetime.strptime(str_date, '%Y-%m-%d')
 
-        self.list_files = os.listdir(self.path)
 
-    @staticmethod
-    def delete_item(keys, dict_):
-        for i in keys:
-            if i in dict_:
-                del dict_[i]
+def convert_types(key: str, value: Any):
+    if key in float_cols:
+        ret_value = float(value)
+    elif key in date_cols:
+        ret_value = str_to_date(value)
+    elif key in int_cols:
+        ret_value = int(value)
+    elif key in time_cols:
+        pass
+    else:
+        ret_value = value
+    return ret_value
 
-    def _get_xml_root(self, file):
-        tree = ET.parse(self.path + file)
+
+class MOEX_reports:
+    def __init__(self, report_type="stock"):
+        self._is_stock = True if report_type == "stock" else False
+        self._path = "moex_reports\\" if self._is_stock else "currency_reports\\"
+        self._list_files = os.listdir(DIR + self._path)
+
+    def _encode_xml(self, file):
+        tree = ET.parse(DIR + self._path + file)
         root = tree.getroot()
-        doc_num = tree.getroot()[0].attrib['DOC_NO']
-        return doc_num, root
-
-    def _parse_moex_xml(self, root):
-        doc_num = root[0].attrib['DOC_NO']
-        try:
-            report_date = root[1].attrib['ReportDate']
-
-        except KeyError:
-            print(f"File: {doc_num}. Отсутствует ReportDate")
-        tags = [
-            "CURRENCY",
-            "BOARD",
-            "SECURITY",
-        ]
-        records = []
-        attrs = {
-            "CurrencyId": None,
-            "BoardId": None,
-            "BoardName": None,
-            "SecurityId": None,
-            "ISIN": None,
-            "SecShortName": None,
-            "PriceType": None,
+        doc_num = root.find("DOC_REQUISITES").attrib['DOC_NO']
+        data = []
+        data_dict = {
+            "doc_num": doc_num,
+            "report_date": str_to_date(root.find("EQM06").attrib['ReportDate']),
+            "trade_datetime": None,
+            "CurrencyId": "",
+            "BoardId": "",
+            "SecurityId": "",
+            "ISIN": "",
+            "SecShortName": "",
+            "PriceType": "",
+            "TradeNo": "",
+            "BuySell": "",
+            "Price": 0.0,
+            "Quantity": 0,
+            "Value": 0.0,
+            "AccInt": 0.0,
+            "Amount": 0.0,
+            "Price2": 0.0,
+            "RepoPart": 0,
+            "DueDate": "1970-01-01",
+            "FaceAmount": 0.0,
+            "RepoRate": 0.0,
+            "ExchComm": 0.0,
+            "ClrComm": 0.0,
+            "ClientCode": "",
         }
-        record_keys = [
-            "TradeNo",
-            "TradeDate",
-            "TradeTime",
-            "BuySell",
-            "Price",
-            "Quantity",
-            "Value",
-            "AccInt",
-            "Amount",
-            "Price2",
-            "RepoPart",
-            "DueDate",
-            "FaceAmount",
-            "RepoRate",
-            "ExchComm",
-            "ClrComm",
-            "ClientDetails",
-            "ClientCode",
-        ]
         for item in root.iter():
-            if item.tag in tags:
-                for key, value in item.attrib.items():
-                    attrs['report_date'] = report_date
-                    attrs['doc_num'] = doc_num
-                    attrs[key] = value
-            if item.tag == "RECORDS":
-                record = dict.fromkeys(record_keys)
-                for key, value in item.attrib.items():
-                    if key in record_keys:
-                        record[key] = value
-                records.append(attrs | record)
-
-        for item in records:
             for key, value in item.items():
                 if key == 'TradeDate':
                     trade_date = value
                 if key == 'TradeTime':
                     trade_time = value
-                if key in ['Price', 'Price2', 'Value', 'AccInt', 'Amount', 'FaceAmount', 'ExchComm', 'ClrComm',
-                           'RepoRate']:
-                    if not value:
-                        value = 0.0
-                    item[key] = float(value)
-                if key in ['Quantity', 'RepoPart']:
-                    if not value:
-                        value = 0
-                    item[key] = int(value)
-                if key in ['ClientCode']:
-                    if not value:
-                        value = str("")
-            item['trade_date_time'] = datetime.datetime.fromisoformat(trade_date + " " + trade_time)
-            MOEXreports.delete_item(
-                [
-                    'TradeDate',
-                    'TradeTime',
-                    'BoardName',
-                    'CurrencyName',
-                    'ClientDetails',
-                ], item)
-            item['report_date'] = datetime.datetime.fromisoformat(item['report_date'])
-            item['DueDate'] = datetime.datetime.fromisoformat(item['DueDate'])
-        return records
+                if key in data_dict.keys():
+                    data_dict[key] = convert_types(key, value)
+            if item.tag == "RECORDS":
+                data_dict["trade_datetime"] = datetime.datetime.fromisoformat(trade_date + " " + trade_time)
+                data.append(data_dict.copy())
+        return doc_num, data
 
-    def moex_xmlreports_to_ch(self, ch):
-        files_count = len(self.list_files)
-        for i, item in enumerate(self.list_files):
-            doc_num, root = self._get_xml_root(item)
-            count = ch.execute(f"SELECT COUNT(*) FROM main.moex_deals WHERE doc_num = '{doc_num}'")
-            if count[0][0] == 0:
-                data = self._parse_moex_xml(root)
-                rows = ch.insert("moex_deals", data)
-                print(f"Файл {i + 1} из {files_count} ||| Добавлено {str(rows)} строк из  {str(item)}")
-            else:
-                print(f"Файл {i + 1} из {files_count} |||  {str(item)}- уже внесен в базу")
+    @property
+    def list_files(self):
+        return self._list_files
+
+    @property
+    def doc_num(self):
+        return self._doc_num
+
+    def read_files(self):
+        for file in self._list_files:
+            doc_num, data = self._encode_xml(file)
+            yield doc_num, data, file
 
 
-class MOEXcurency:
-    def __init__(self, file):
-        self.path = "N:\\KurzanovAV\\Общее\\moex\\currency_reports\\"
-        self.file = file
-
-        self.list_files = os.listdir(self.path)
-
-    def _get_xml_root(self):
-        tree = ET.parse(self.path + self.file)
-        root = tree.getroot()
-        doc_num = tree.getroot()[0].attrib['DOC_NO']
-        return doc_num, root
 
 
-# MOEXcurency("MB02568_CUX23_D77_040322_003854088.xml")
-
-class CBRcurrency:
-    def __init__(self, ch):
-        self.today = datetime.date.today()
-        self.curr_list = ["USD", "EUR", "GBP", "KZT", "CNY"]
-        self.url = "https://cbr.ru/scripts/XML_daily.asp?date_req="
-        self.ch = ch
-
-    def _parse_data(self, date):
-        data = []
-        # Добавить обработку исключений
-        resp = requests.get(self.url + date.strftime('%d/%m/%Y'))
-        root = ET.fromstring(resp.text)
-        for cur in root.findall('Valute'):
-            if cur.find('CharCode').text in self.curr_list:
-                items = dict()
-                for item in cur:
-                    items['date'] = date
-                    items['cur_code'] = cur.find('CharCode').text
-                    items['nominal'] = int(cur.find('Nominal').text)
-                    items['value'] = float(cur.find('Value').text.replace(',', '.'))
-                data.append(items)
-
-        num = self.ch.insert('cbr_currency', data)
-        if num:
-            print("Добавлены курсы валют за ", date.strftime("%Y-%m-%d"))
-            return True
-        return False
-
-    def get_data(self):
-        last_date = self.ch.max_date("cbr_currency", "date")
-        print(type(last_date))
-        print(type(self.today))
-        if not last_date:
-            date_range_all = pd.date_range(start=last_date - datetime.timedelta(-1), end=self.today)
-            for date in date_range_all:
-                self._parse_data(date)
-        elif last_date < self.today:
-            self._parse_data(self.today)
-        else:
-            return None

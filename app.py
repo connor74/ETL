@@ -1,12 +1,11 @@
 import time
-
 import pandas as pd
 import configparser
 import datetime
+
 from db import Clickhouse, MSSQL
-from moex_api_ import moex_get
 from colors import Colors
-from typing import List
+from moex_reports import MOEX_reports
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -14,8 +13,10 @@ yesterday = datetime.date.today() - datetime.timedelta(1)
 
 mssql = MSSQL(config)
 ch = Clickhouse(config)
+moex_reports = MOEX_reports()
 
-START_DATE = "2019-"
+def string_console_datetime():
+    return date_to_str(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
 
 def check_last_date(table: str, date_column_name: str) -> datetime:
@@ -57,25 +58,35 @@ def migrate_table(table: str, date_column_name: str, end_date: str = None, start
         start_date = str_to_date(start_date) - datetime.timedelta(-1)
     else:
         last_date = check_last_date(table, date_column_name)
-        print(type(last_date))
-        print(type(end_date))
         if last_date < end_date:
             start_date = last_date - datetime.timedelta(-1)
         else:
             print("-" * 100)
-            print(Colors.green,
-                  f" {date_to_str(datetime.datetime.now('%H:%M:%S'))} - Обновление таблицы {table} не требуется! ")
+            print(
+                f"{string_console_datetime()} - Обновление таблицы {table} не требуется! ")
             print("-" * 100)
             return None
-    print(start_date)
-    print(end_date)
     date_range = pd.date_range(start_date, end_date)
     for day in date_range:
         rows = migrate_by_date(table, date_to_str(day))
         print("-" * 100)
         print(Colors.yellow,
-              f" {date_to_str(datetime.datetime.now())} - За {date_to_str(day)} | Таблица {table} | Добавлено: {rows} строк.")
+              f" {string_console_datetime()} - За {date_to_str(day)} | Таблица {table} | Добавлено: {rows} строк.")
     print("-" * 100)
+
+
+def get_moex_reports():
+    table = "moex_deals"
+    for doc_num, data, file in moex_reports.read_files():
+        if not ch.check_moex_report(doc_num):
+            rows = ch.insert(table, data)
+            print("-" * 100)
+            print(
+                f" {string_console_datetime()} - Файл {file} | Таблица {table} | Добавлено: {rows} строк.")
+        else:
+            print("-" * 100)
+            print(
+                f"{string_console_datetime()} - Данные из файла {file} уже добавлены в базу данных ранее")
 
 
 def get_moex_api_data(date_begin: str = None, date_end: str = None) -> None:
@@ -85,20 +96,15 @@ def get_moex_api_data(date_begin: str = None, date_end: str = None) -> None:
         pass
 
 
-
 def main() -> None:
-    # start_date = datetime.datetime.strptime("2022-05-06", "%Y-%m-%d")
-    # migrate_table("balance")
     begin = time.time()
-    migrate_table("balance", "date_balance", start_date='2022-01-01', end_date='2022-05-16')
-    #data = moex_get(yesterday.strftime('%Y-%m-%d'))
-    # moex_bonds_history
-    #ch.insert("moex_bonds_history", data)
-    print(time.time() - begin)
+    # migrate_table("balance", "date_balance", start_date='2022-01-01', end_date='2022-05-16')
+    migrate_table("balance", "date_balance")
 
+    get_moex_reports()
+    print(time.time() - begin)
 
 
 main()
 
 # Переделать номер счета в int128
-
