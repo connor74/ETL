@@ -38,7 +38,7 @@ tables = [
 ]
 
 
-def check_last_update():
+def check_last_update() -> bool:
     now = datetime.datetime.today().replace(microsecond=0)
     check_time = now.replace(hour=11, minute=1)
     if now > check_time:

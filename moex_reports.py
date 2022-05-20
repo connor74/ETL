@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 import os
 import datetime
-from typing import Any
+from typing import Any, Generator
 
 import requests
 import pandas as pd
@@ -14,11 +14,11 @@ int_cols = ["Quantity", "RepoPart"]
 time_cols = ["TradeTime"]
 
 
-def str_to_date(str_date: str):
+def str_to_date(str_date: str) -> datetime:
     return datetime.datetime.strptime(str_date, '%Y-%m-%d')
 
 
-def convert_types(key: str, value: Any):
+def convert_types(key: str, value: Any) -> Any:
     if key in float_cols:
         ret_value = float(value)
     elif key in date_cols:
@@ -33,7 +33,7 @@ def convert_types(key: str, value: Any):
 
 
 class MOEX_reports:
-    def __init__(self, report_type="stock"):
+    def __init__(self, report_type: str = "stock") -> None:
         self._is_stock = True if report_type == "stock" else False
         self._path = "moex_reports\\" if self._is_stock else "currency_reports\\"
         self._list_files = os.listdir(DIR + self._path)
@@ -83,18 +83,14 @@ class MOEX_reports:
         return doc_num, data
 
     @property
-    def list_files(self):
+    def list_files(self) -> list[str]:
         return self._list_files
 
     @property
-    def doc_num(self):
+    def doc_num(self) -> str:
         return self._doc_num
 
     def read_files(self):
         for file in self._list_files:
             doc_num, data = self._encode_xml(file)
             yield doc_num, data, file
-
-
-
-

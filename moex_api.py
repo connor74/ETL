@@ -10,13 +10,12 @@ path_history = "history/engines/stock/markets/bonds/"
 
 
 class MOEX_api:
-    def __init__(self, date: str) -> None:
+    def __init__(self) -> None:
         self._pages = None
         self._data = None
         self._columns = None
         self._status_code = None
         self._resp = None
-        self._date = date
         self._req_columns = [
             'BOARDID',
             'TRADEDATE',
@@ -44,13 +43,20 @@ class MOEX_api:
 
         self._link = url + path_history
         self._params = {
-            'date': self._date,
             'iss.meta': 'off',
             'history.columns': ','.join(self._req_columns),
         }
 
-    def get_data(self, num: int) -> None:
-        self._params['start'] = num
+    def _get_data_by_page(self, date: str, num: int = None):
+        """
+
+        :param date:
+        :param num:
+        :return:
+        """
+        self._params['date'] = date
+        if num:
+            self._params['start'] = num
         try:
             self._resp = requests.get(f'{self._link}securities.json', params=self._params)
             self._status_code = self._resp.status_code
@@ -64,45 +70,28 @@ class MOEX_api:
         else:
             return None
 
-    @property
-    def status_code(self) -> int:
-        return self._status_code
-
-    @property
-    def columns(self) -> list:
-        return self._columns
-
-    @property
-    def data(self):
-        return self._data
-
-    @property
-    def date_columns(self) -> list:
-        return self._date_columns
-
-def moex_get(date: str) -> list:
-    moex = MOEX_api(date)
-    # API выдает по 100 записей, необходимо пройти в цикле по всем страницам
-    # Отсчет идет от номера первой записи на странице
-    num = 1
-    all_data = []
-    while True:
-        moex.get_data(num)
-        if moex.status_code:
-            if moex.data:
-                if num == 1:
-                    columns = [cols.lower() for cols in moex.columns]
-                flat_list = []
-                for item in moex.data:
-                    data_dict = dict(zip(columns, item))
-                    for date in moex.date_columns:
-                        if data_dict[date.lower()] or data_dict[date.lower()] == 'None':
-                            data_dict[date.lower()] = datetime.strptime(data_dict[date.lower()], '%Y-%m-%d')
-                            print(data_dict[date.lower()])
-                    flat_list.append(data_dict)
-                all_data.extend(flat_list)
-                num += 100
+    def get_data_by_date(self, date: str) -> list[list]:
+        # API выдает по 100 записей, необходимо пройти в цикле по всем страницам
+        # Отсчет идет от номера первой записи на странице
+        num = 1
+        all_data = []
+        while True:
+            self._get_data_by_page(date, num)
+            if self._status_code:
+                if self._data:
+                    if num == 1:
+                        columns = [cols.lower() for cols in self._columns]
+                    flat_list = []
+                    for item in self._data:
+                        data_dict = dict(zip(columns, item))
+                        for date in self._date_columns:
+                            if data_dict[date.lower()] or data_dict[date.lower()] == 'None':
+                                data_dict[date.lower()] = datetime.strptime(data_dict[date.lower()], '%Y-%m-%d')
+                                print(data_dict[date.lower()])
+                        flat_list.append(data_dict)
+                    all_data.extend(flat_list)
+                    num += 100
+                else:
+                    return all_data
             else:
-                return all_data
-        else:
-            return None
+                return None
