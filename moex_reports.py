@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 import os
-import datetime
-from typing import Any, Generator
+from datetime import datetime
+from typing import Any, Generator, List, Dict
 
 import requests
 import pandas as pd
@@ -15,7 +15,7 @@ time_cols = ["TradeTime"]
 
 
 def str_to_date(str_date: str) -> datetime:
-    return datetime.datetime.strptime(str_date, '%Y-%m-%d')
+    return datetime.strptime(str_date, '%Y-%m-%d')
 
 
 def convert_types(key: str, value: Any) -> Any:
@@ -78,7 +78,7 @@ class MOEX_reports:
                 if key in data_dict.keys():
                     data_dict[key] = convert_types(key, value)
             if item.tag == "RECORDS":
-                data_dict["trade_datetime"] = datetime.datetime.fromisoformat(trade_date + " " + trade_time)
+                data_dict["trade_datetime"] = datetime.fromisoformat(trade_date + " " + trade_time)
                 data.append(data_dict.copy())
         return doc_num, data
 
@@ -94,3 +94,7 @@ class MOEX_reports:
         for file in self._list_files:
             doc_num, data = self._encode_xml(file)
             yield doc_num, data, file
+
+
+class Moex_reports_currency:
+    pass

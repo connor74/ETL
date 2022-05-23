@@ -51,7 +51,7 @@ def date_to_str(date: datetime, format: str = "%Y-%m-%d") -> str:
     return date
 
 
-def get_migrate_table(table: str, date_column_name: str, end_date: str = None, start_date: str = None) -> None:
+def migrate_db_table(table: str, date_column_name: str, end_date: str = None, start_date: str = None) -> None:
     """
     Перенос данных из MSSQL -> ClickHouse
     :param table: Наименование таблицы в Clickhouse (также, наименование файла с запросом SQL для миграции
@@ -66,7 +66,7 @@ def get_migrate_table(table: str, date_column_name: str, end_date: str = None, s
         end_date = yesterday
 
     if start_date:
-        start_date = str_to_date(start_date) - datetime.timedelta(-1)
+        start_date = str_to_date(start_date)
     else:
         last_date = check_last_date(table, date_column_name)
         if last_date < end_date:
@@ -115,8 +115,8 @@ def get_moex_api_data(start_date: str = None, end_date: str = None) -> None:
 
 def main() -> None:
     begin = time.time()
-    # migrate_table("balance", "date_balance", start_date='2022-01-01', end_date='2022-05-16')
-    get_migrate_table("balance", "date_balance")
+    migrate_db_table("balance", "date_balance", start_date='2022-01-01', end_date='2022-05-22')
+    #migrate_db_table("balance", "date_balance")
 
     get_moex_reports()
     print(time.time() - begin)
