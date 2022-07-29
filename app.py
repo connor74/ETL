@@ -3,7 +3,7 @@ import pandas as pd
 import configparser
 import datetime
 
-from db import Clickhouse, MSSQL
+from db import Clickhouse, MSSQL, Postgree
 from colors import Colors
 from moex_reports import MOEX_reports
 from moex_api import MOEX_api
@@ -109,17 +109,43 @@ def get_moex_api_data(start_date: str = None, end_date: str = None) -> None:
 
 
 
+def update_staging_accounts(date_begin: str = "1900-01-01"):
+    pg = Postgree(config, "staging")
+    pg.truncate_table("accounts")
+    count = 0
+        #count += pg.insert(tuple(chunk), table="accounts")
+    #pg.close()
+    print(count)
+    for item in mssql.read_df("accounts", "2022-07-05", pd, True):
+        print(item)
 
 
+def update_staging_balance(date_begin: str = "1900-01-01"):
+    pg = Postgree(config, "staging")
+    max_date = pg.select_max_date("balance", "date_balance")
+    pg.delete_rows_by_date()
+    for chunk in mssql.read_raw(table="accounts", param=date_begin, pg=True):
+        print(chunk)
+        print(pg.insert())
+    print(mssql.read_df("accounts", "2022-07-05", pd, True))
 
 
 def main() -> None:
     begin = time.time()
-    migrate_db_table("balance", "date_balance", start_date='2022-01-01', end_date='2022-05-22')
-    #migrate_db_table("balance", "date_balance")
+    migrate_db_table("balance", "date_balance")
+    migrate_db_table("transfer", "date_transfer")
+    #pg = Postgree(config, "staging")
+    #print(pg.select_max_date("balance", "date_balance"))
+    #print(pg.execute("SELECT ac_time_change FROM staging.accounts LIMIT 10;"))
+    #update_staging_accounts("2022-07-04")
+
+
+
+
+
 
     get_moex_reports()
-    print(time.time() - begin)
+    #print(time.time() - begin)
 
 
 main()
